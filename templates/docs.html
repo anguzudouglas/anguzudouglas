@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Pollinations AI Agent</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Pollinations AI Agent</a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <h1 class="mb-4">API Documentation</h1>
+        <p>Use these endpoints directly via curl, Python (requests), or browser (for GET).</p>
+
+        <div class="accordion" id="accordionDocs">
+            <!-- Chat -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#chatDoc">
+                        /api/chat (POST)
+                    </button>
+                </h2>
+                <div id="chatDoc" class="accordion-collapse collapse show">
+                    <div class="accordion-body">
+                        <p>Agent interaction.</p>
+                        <pre>curl -X POST https://atlas-e7ck.onrender.com/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Generate an image of a cat", "session_id": "test"}'</pre>
+                        <p>Python: <code>import requests; res = requests.post('https://atlas-e7ck.onrender.com/api/chat', json={'query': 'hello'}).json()</code></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#imageDoc">
+                        /api/generate/image (GET/POST)
+                    </button>
+                </h2>
+                <div id="imageDoc" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <p>Generate image.</p>
+                        <pre>curl "https://atlas-e7ck.onrender.com/api/generate/image?prompt=a cat"</pre>
+                        <p>POST: <code>curl -X POST ... -d '{"prompt": "a cat"}'</code></p>
+                        <p>Browser: https://atlas-e7ck.onrender.com/api/generate/image?prompt=a%20cat</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#textDoc">
+                        /api/generate/text (GET/POST)
+                    </button>
+                </h2>
+                <div id="textDoc" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <p>Generate text.</p>
+                        <pre>curl "https://atlas-e7ck.onrender.com/api/generate/text?prompt=hello"</pre>
+                        <p>POST: Advanced params like temperature.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#audioDoc">
+                        /api/generate/audio (GET/POST)
+                    </button>
+                </h2>
+                <div id="audioDoc" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <p>Generate audio.</p>
+                        <pre>curl "https://atlas-e7ck.onrender.com/api/generate/audio?prompt=hello&voice=alloy"</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#modelsDoc">
+                        /api/models/{type} (GET)
+                    </button>
+                </h2>
+                <div id="modelsDoc" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <p>List models (text/image).</p>
+                        <pre>curl "https://atlas-e7ck.onrender.com/api/models/text"</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#healthDoc">
+                        /api/health (GET)
+                    </button>
+                </h2>
+                <div id="healthDoc" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <p>Health check.</p>
+                        <pre>curl "https://atlas-e7ck.onrender.com/api/health"</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-5 p-4 bg-light rounded">
+            <h5>Compatibility Notes</h5>
+            <ul>
+                <li><strong>GET:</strong> Browser-friendly (e.g., ?prompt=...).</li>
+                <li><strong>POST:</strong> JSON bodies for advanced (curl/Python).</li>
+                <li><strong>Curl/Python:</strong> Examples above.</li>
+                <li><strong>Swagger:</strong> Visit <a href="/api-docs">/api-docs</a> for interactive (but using custom for professional look).</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
