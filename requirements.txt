@@ -2,4 +2,8 @@ flask
 requests
 numpy
 pandas
+flask
+torch
+transformers
+
 # add your other dependencies here
