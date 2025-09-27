@@ -1,4 +1,5 @@
-fastapi
-uvicorn
-transformers
-torch
+flask
+requests
+numpy
+pandas
+# add your other dependencies here
