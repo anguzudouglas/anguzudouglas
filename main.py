@@ -1,14 +1,12 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from transformers import pipeline
+from flask import Flask
+import os
 
-app = FastAPI()
-generator = pipeline("text-generation", model="gpt2")
+app = Flask(__name__)
 
-class Prompt(BaseModel):
-    text: str
+@app.route("/")
+def hello():
+    return "Hello, Render!"
 
-@app.post("/generate")
-def generate_text(prompt: Prompt):
-    output = generator(prompt.text, max_length=100, num_return_sequences=1)
-    return {"response": output[0]["generated_text"]}
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
