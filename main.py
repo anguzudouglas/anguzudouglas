@@ -1,14 +1,19 @@
 """
 LangChain AI Agent with Pollinations.ai API
 Deployable on Render with Docker
+Professional UI Dashboard Added
 """
 
 import os
 import json
 import requests
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, HTTPException
+from urllib.parse import quote
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from langchain.agents import Tool, AgentExecutor, create_react_agent
 from langchain.memory import ConversationBufferMemory
@@ -35,7 +40,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request/Response models
+# Mount static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# Request/Response models (unchanged)
 class AgentRequest(BaseModel):
     query: str
     session_id: Optional[str] = "default"
@@ -61,7 +70,7 @@ class AudioGenerationRequest(BaseModel):
     prompt: str
     voice: Optional[str] = "alloy"
 
-# Custom LLM wrapper for Pollinations.ai
+# Custom LLM wrapper (unchanged from previous)
 class PollinationsLLM(LLM):
     """Custom LLM wrapper for Pollinations.ai API"""
     
@@ -89,7 +98,7 @@ class PollinationsLLM(LLM):
             }
             
             response = requests.post(
-                self.api_url,
+                self.api_url + "openai",
                 json=payload,
                 headers={"Content-Type": "application/json"}
             )
@@ -102,21 +111,24 @@ class PollinationsLLM(LLM):
             
         except Exception as e:
             logger.error(f"Error calling Pollinations API: {e}")
-            return f"Error generating text: {str(e)}"
+            # Fallback to simple GET
+            try:
+                encoded = quote(prompt)
+                fallback_resp = requests.get(f"https://text.pollinations.ai/{encoded}")
+                fallback_resp.raise_for_status()
+                return fallback_resp.text
+            except:
+                return f"Error generating text: {str(e)}"
 
-# Tool functions for the agent
+# Tool functions (unchanged)
 def generate_image(prompt: str) -> str:
     """Generate an image using Pollinations.ai"""
     try:
-        # URL encode the prompt
-        from urllib.parse import quote
         encoded_prompt = quote(prompt)
         image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-        
-        # Verify the image can be generated
-        response = requests.head(image_url)
+        response = requests.get(image_url, allow_redirects=True)
         if response.status_code == 200:
-            return f"Image generated successfully! View it at: {image_url}"
+            return f"Image generated successfully! View it at: {response.url}"
         else:
             return f"Failed to generate image. Status: {response.status_code}"
     except Exception as e:
@@ -126,14 +138,11 @@ def generate_image(prompt: str) -> str:
 def generate_audio(prompt: str, voice: str = "alloy") -> str:
     """Generate audio using Pollinations.ai"""
     try:
-        from urllib.parse import quote
         encoded_prompt = quote(prompt)
         audio_url = f"https://text.pollinations.ai/{encoded_prompt}?model=openai-audio&voice={voice}"
-        
-        # Check if audio can be generated
-        response = requests.head(audio_url)
+        response = requests.get(audio_url, allow_redirects=True)
         if response.status_code == 200:
-            return f"Audio generated successfully! Listen at: {audio_url}"
+            return f"Audio generated successfully! Listen at: {response.url}"
         else:
             return f"Failed to generate audio. Status: {response.status_code}"
     except Exception as e:
@@ -171,7 +180,6 @@ def get_feed(feed_type: str = "image") -> str:
         response = requests.get(url)
         response.raise_for_status()
         feed_data = response.json()
-        # Limit to first 5 items for brevity
         if isinstance(feed_data, list):
             feed_data = feed_data[:5]
         return f"Latest {feed_type} feed items: {json.dumps(feed_data, indent=2)}"
@@ -179,7 +187,7 @@ def get_feed(feed_type: str = "image") -> str:
         logger.error(f"Error fetching feed: {e}")
         return f"Error fetching feed: {str(e)}"
 
-# Create tools for the agent
+# Create tools for the agent (unchanged)
 tools = [
     Tool(
         name="GenerateImage",
@@ -203,7 +211,7 @@ tools = [
     )
 ]
 
-# Agent prompt template
+# Agent prompt template (unchanged)
 agent_prompt = PromptTemplate(
     input_variables=["input", "tools", "tool_names", "agent_scratchpad"],
     template="""You are a helpful AI assistant powered by Pollinations.ai APIs. You can:
@@ -234,29 +242,22 @@ Begin!
 {agent_scratchpad}"""
 )
 
-# Store agent sessions
+# Store agent sessions (unchanged)
 agent_sessions: Dict[str, AgentExecutor] = {}
 
 def get_or_create_agent(session_id: str) -> AgentExecutor:
     """Get existing agent or create new one for session"""
     if session_id not in agent_sessions:
-        # Initialize LLM
         llm = PollinationsLLM(temperature=0.7)
-        
-        # Create memory
         memory = ConversationBufferMemory(
             memory_key="chat_history",
             return_messages=True
         )
-        
-        # Create agent
         agent = create_react_agent(
             llm=llm,
             tools=tools,
             prompt=agent_prompt
         )
-        
-        # Create agent executor
         agent_executor = AgentExecutor(
             agent=agent,
             tools=tools,
@@ -265,68 +266,77 @@ def get_or_create_agent(session_id: str) -> AgentExecutor:
             max_iterations=5,
             handle_parsing_errors=True
         )
-        
         agent_sessions[session_id] = agent_executor
-    
     return agent_sessions[session_id]
 
-# API Endpoints
-@app.get("/")
+# UI Routes
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    """Professional Dashboard UI"""
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/api-docs", response_class=HTMLResponse)
+async def api_docs(request: Request):
+    """Swagger UI for API Documentation"""
+    return templates.TemplateResponse("docs.html", {"request": request})
+
+# API Endpoints (unchanged from previous)
+@app.get("/api/")
 async def root():
     """Root endpoint with API information"""
     return {
         "name": "Pollinations AI Agent API",
         "version": "1.0.0",
         "endpoints": {
-            "/chat": "Main chat endpoint for agent interaction",
-            "/generate/image": "Direct image generation",
-            "/generate/text": "Direct text generation",
-            "/generate/audio": "Direct audio generation",
-            "/models": "List available models",
-            "/health": "Health check"
+            "/chat": "POST: Main chat endpoint for agent interaction",
+            "/generate/image": "GET/POST: Direct image generation (?prompt= or JSON)",
+            "/generate/text": "GET/POST: Direct text generation (?prompt= or JSON)",
+            "/generate/audio": "GET/POST: Direct audio generation (?prompt=&voice= or JSON)",
+            "/models/{model_type}": "GET: List available models (text/image)",
+            "/health": "GET: Health check"
         },
-        "powered_by": "Pollinations.ai"
+        "powered_by": "Pollinations.ai",
+        "ui": "/ (Dashboard)",
+        "docs": "/api-docs (Swagger)"
     }
 
-@app.post("/chat", response_model=AgentResponse)
-async def chat(request: AgentRequest):
-    """Main chat endpoint for agent interaction"""
+@app.get("/api/generate/image")
+async def generate_image_get(prompt: str = Query(..., description="Image prompt")):
+    """GET: Direct image generation"""
     try:
-        agent = get_or_create_agent(request.session_id)
-        
-        # Track which tools were used
-        tools_used = []
-        
-        # Run agent
-        result = agent.invoke({"input": request.query})
-        
-        # Extract tools used from verbose output (simplified)
-        if "intermediate_steps" in result:
-            for step in result.get("intermediate_steps", []):
-                if len(step) > 0 and hasattr(step[0], "tool"):
-                    tools_used.append(step[0].tool)
-        
-        return AgentResponse(
-            response=result.get("output", "No response generated"),
-            session_id=request.session_id,
-            tools_used=tools_used
-        )
+        encoded_prompt = quote(prompt)
+        image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+        response = requests.get(image_url, allow_redirects=True)
+        if response.status_code == 200:
+            return {"success": True, "image_url": str(response.url)}
+        else:
+            raise HTTPException(status_code=response.status_code, detail="Generation failed")
     except Exception as e:
-        logger.error(f"Chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate/image")
+@app.post("/api/generate/image")
 async def generate_image_endpoint(request: ImageGenerationRequest):
-    """Direct image generation endpoint"""
+    """POST: Direct image generation"""
     try:
         result = generate_image(request.prompt)
         return {"success": True, "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate/text")
+@app.get("/api/generate/text")
+async def generate_text_get(prompt: str = Query(..., description="Text prompt")):
+    """GET: Simple text generation"""
+    try:
+        encoded_prompt = quote(prompt)
+        resp = requests.get(f"https://text.pollinations.ai/{encoded_prompt}")
+        resp.raise_for_status()
+        return {"success": True, "generated_text": resp.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/generate/text")
 async def generate_text_endpoint(request: TextGenerationRequest):
-    """Direct text generation endpoint"""
+    """POST: Advanced text generation"""
     try:
         llm = PollinationsLLM(
             model=request.model,
@@ -337,16 +347,33 @@ async def generate_text_endpoint(request: TextGenerationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/generate/audio")
+@app.get("/api/generate/audio")
+async def generate_audio_get(
+    prompt: str = Query(..., description="Audio prompt"),
+    voice: str = Query("alloy", description="Voice (e.g., alloy)")
+):
+    """GET: Direct audio generation"""
+    try:
+        encoded_prompt = quote(prompt)
+        audio_url = f"https://text.pollinations.ai/{encoded_prompt}?model=openai-audio&voice={voice}"
+        response = requests.get(audio_url, allow_redirects=True)
+        if response.status_code == 200:
+            return {"success": True, "audio_url": str(response.url)}
+        else:
+            raise HTTPException(status_code=response.status_code, detail="Generation failed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/generate/audio")
 async def generate_audio_endpoint(request: AudioGenerationRequest):
-    """Direct audio generation endpoint"""
+    """POST: Direct audio generation"""
     try:
         result = generate_audio(request.prompt, request.voice)
         return {"success": True, "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/{model_type}")
+@app.get("/api/models/{model_type}")
 async def get_models(model_type: str):
     """Get available models"""
     try:
@@ -355,12 +382,31 @@ async def get_models(model_type: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/health")
+@app.post("/api/chat", response_model=AgentResponse)
+async def chat(request: AgentRequest):
+    """Main chat endpoint for agent interaction"""
+    try:
+        agent = get_or_create_agent(request.session_id)
+        tools_used = []
+        result = agent.invoke({"input": request.query})
+        if "intermediate_steps" in result:
+            for step in result.get("intermediate_steps", []):
+                if len(step) > 0 and hasattr(step[0], "tool"):
+                    tools_used.append(step[0].tool)
+        return AgentResponse(
+            response=result.get("output", "No response generated"),
+            session_id=request.session_id,
+            tools_used=tools_used
+        )
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "Pollinations AI Agent"}
 
-# Clear old sessions periodically (simple implementation)
 @app.on_event("startup")
 async def startup_event():
     logger.info("Pollinations AI Agent started successfully!")
