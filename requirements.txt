@@ -1,7 +1,7 @@
 # Core dependencies
 fastapi==0.115.2
 uvicorn[standard]==0.27.0
-pydantic==2.5.3
+pydantic==2.9.2  # Bumped: >=2.7.4 for LangChain 0.3.1; compatible with FastAPI
 python-multipart==0.0.6
 jinja2==3.1.4
 
