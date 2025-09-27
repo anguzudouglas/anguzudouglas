@@ -1,20 +1,21 @@
-# Use official Python slim image
-FROM python:3.10-slim
+# Use an official Python runtime
+FROM python:3.11-slim
 
-# Set working directory
+# Set work directory
 WORKDIR /app
 
-# Copy requirements
-COPY requirements.txt .
-
 # Install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code
-COPY main.py .
+# Copy project files
+COPY . .
 
-# Expose port for FastAPI
-EXPOSE 8000
+# Set environment variable for Render
+ENV PYTHONUNBUFFERED=1
 
-# Run the app
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Expose the port Render uses
+EXPOSE 10000
+
+# Command to run your app
+CMD ["python", "main.py"]
