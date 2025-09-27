@@ -15,12 +15,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from langchain.agents import Tool, AgentExecutor, create_react_agent
+from langchain.agents import AgentExecutor, create_react_agent  # v0.3 compat
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
-from langchain_community.llms import HuggingFaceHub
+from langchain_community.llms import HuggingFaceHub  # Keep if needed, but not used
 from langchain.llms.base import LLM
 from langchain.callbacks.manager import CallbackManagerForLLMRun
+from langchain_core.tools import Tool  # Updated import for v0.3
 import uvicorn
 import logging
 
@@ -70,7 +71,7 @@ class AudioGenerationRequest(BaseModel):
     prompt: str
     voice: Optional[str] = "alloy"
 
-# Custom LLM wrapper (unchanged from previous)
+# Custom LLM wrapper (unchanged)
 class PollinationsLLM(LLM):
     """Custom LLM wrapper for Pollinations.ai API"""
     
@@ -187,7 +188,7 @@ def get_feed(feed_type: str = "image") -> str:
         logger.error(f"Error fetching feed: {e}")
         return f"Error fetching feed: {str(e)}"
 
-# Create tools for the agent (unchanged)
+# Create tools for the agent (Tool from langchain_core.tools)
 tools = [
     Tool(
         name="GenerateImage",
@@ -256,7 +257,7 @@ def get_or_create_agent(session_id: str) -> AgentExecutor:
         agent = create_react_agent(
             llm=llm,
             tools=tools,
-            prompt=agent_prompt
+            prompt=agent_prompt  # String template works in v0.3
         )
         agent_executor = AgentExecutor(
             agent=agent,
@@ -269,7 +270,7 @@ def get_or_create_agent(session_id: str) -> AgentExecutor:
         agent_sessions[session_id] = agent_executor
     return agent_sessions[session_id]
 
-# UI Routes
+# UI Routes (unchanged)
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Professional Dashboard UI"""
@@ -280,7 +281,7 @@ async def api_docs(request: Request):
     """Swagger UI for API Documentation"""
     return templates.TemplateResponse("docs.html", {"request": request})
 
-# API Endpoints (unchanged from previous)
+# API Endpoints (unchanged)
 @app.get("/api/")
 async def root():
     """Root endpoint with API information"""
