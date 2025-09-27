@@ -1,29 +1,104 @@
-from flask import Flask, request, jsonify
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-import torch
+from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
+import requests
+from langchain.llms.base import LLM
+from langchain.agents import initialize_agent, Tool, AgentType
+from langchain.memory import ConversationBufferMemory
 import os
+import time
 
 app = Flask(__name__)
+CORS(app)
 
-# Load GPT-2 model and tokenizer once at startup
-MODEL_NAME = "gpt2"  # you can use "gpt2-medium" if memory allows
-tokenizer = GPT2Tokenizer.from_pretrained(MODEL_NAME)
-model = GPT2LMHeadModel.from_pretrained(MODEL_NAME)
+# ---------------- Pollinations LLM Wrapper ----------------
+class PollinationsLLM(LLM):
+    def __init__(self):
+        self.api_base = "https://text.pollinations.ai"
 
+    @property
+    def _llm_type(self):
+        return "pollinations"
+
+    def _call(self, prompt: str, stop=None):
+        url = f"{self.api_base}/"
+        payload = {"prompt": prompt}
+        try:
+            response = requests.post(url, json=payload)
+            if response.status_code == 200:
+                return response.json().get("text", "")
+            else:
+                return f"Error: {response.text}"
+        except Exception as e:
+            return f"Exception: {str(e)}"
+
+# Initialize LLM
+llm = PollinationsLLM()
+
+# ---------------- Tools ----------------
+def calculator_tool(query: str) -> str:
+    try:
+        return str(eval(query))
+    except Exception as e:
+        return f"Error: {e}"
+
+def generate_image(prompt: str) -> str:
+    try:
+        url = f"https://image.pollinations.ai/prompt/{prompt}"
+        return url
+    except Exception as e:
+        return f"Error: {e}"
+
+tools = [
+    Tool(
+        name="Calculator",
+        func=calculator_tool,
+        description="Performs basic math calculations"
+    ),
+    Tool(
+        name="ImageGenerator",
+        func=generate_image,
+        description="Generates images from text prompts using Pollinations.ai"
+    )
+]
+
+# ---------------- Memory ----------------
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+# ---------------- Initialize Agent ----------------
+agent = initialize_agent(
+    tools,
+    llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    memory=memory,
+    verbose=True
+)
+
+# ---------------- Streaming helper ----------------
+def stream_response(prompt: str):
+    # Split the response into chunks and stream
+    full_response = agent.run(prompt)
+    chunk_size = 50
+    for i in range(0, len(full_response), chunk_size):
+        yield full_response[i:i+chunk_size]
+        time.sleep(0.05)  # simulate streaming
+
+# ---------------- Routes ----------------
 @app.route("/")
 def home():
-    return "GPT-2 API is running!"
+    return "Pollinations.ai LangChain Agent with Memory and Streaming is running!"
 
-@app.route("/generate", methods=["POST"])
-def generate():
+@app.route("/ask", methods=["POST"])
+def ask():
     data = request.get_json()
     prompt = data.get("prompt", "")
-    max_length = data.get("max_length", 100)
+    return Response(stream_response(prompt), mimetype="text/plain")
 
-    inputs = tokenizer.encode(prompt, return_tensors="pt")
-    outputs = model.generate(inputs, max_length=max_length, do_sample=True, top_k=50)
-    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return jsonify({"generated_text": text})
+@app.route("/image", methods=["POST"])
+def image():
+    data = request.get_json()
+    prompt = data.get("prompt", "")
+    image_url = generate_image(prompt)
+    return jsonify({"image_url": image_url})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
