@@ -1,14 +1,14 @@
 # Core dependencies
 fastapi==0.115.2
 uvicorn[standard]==0.27.0
-pydantic==1.10.13
+pydantic==2.5.3
 python-multipart==0.0.6
 jinja2==3.1.4
 
-# LangChain dependencies
-langchain==0.1.6
-langchain-community==0.0.18
-langchain-core==0.1.23
+# LangChain dependencies (Upgraded for Pydantic v2)
+langchain==0.3.1
+langchain-community==0.3.1
+langchain-core==0.3.6
 
 # HTTP and API clients
 requests==2.31.0
@@ -17,7 +17,7 @@ aiohttp==3.9.1
 
 # Utilities
 python-dotenv==1.0.0
-typing-extensions==4.9.0
+typing-extensions==4.12.2  # Bumped for v2 compat
 
 # Optional
 orjson==3.9.12
